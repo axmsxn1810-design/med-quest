@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EMT Quest</title>
+<style>
+:root{--bg:#0b1220;--panel:#131f30;--teal:#5de5d0;
+--text:#f1f5f9;--muted:#91a7ba}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+font-family:system-ui,sans-serif}
+main{max-width:760px;margin:auto;padding:22px}
+header,.stats,.categories,.options{display:grid;gap:12px}
+header{grid-template-columns:1fr auto;align-items:center}
+h1{color:var(--teal);margin-bottom:4px}
+p{line-height:1.7}
+small,.muted{color:var(--muted)}
+.stats{grid-template-columns:1fr 1fr;margin:22px 0}
+.card,.panel{background:var(--panel);border-radius:16px;
+padding:18px;border:1px solid #263649}
+.categories{grid-template-columns:repeat(2,minmax(0,1fr))}
+button{font:inherit;cursor:pointer}
+.category,.option,.primary{border:1px solid #34465a;
+background:#182638;color:var(--text);border-radius:12px;
+padding:14px;text-align:left}
+.category:hover,.option:hover{border-color:var(--teal)}
+.primary{background:var(--teal);color:#0b1220;
+text-align:center;font-weight:700;width:100%}
+.option.selected{border-color:var(--teal);
+background:#123a46}
+.option.correct{border-color:#39c99a;background:#123a35}
+.option.wrong{border-color:#fb7185;background:#401f2b;
+animation:shake .25s}
+.bar{height:7px;background:#263649;border-radius:9px;
+overflow:hidden;margin:12px 0}
+#progress{height:100%;background:var(--teal);width:0;
+transition:width .35s}
+.hidden{display:none}
+#feedback{margin:16px 0;padding:16px;border-radius:12px;
+background:#182638;line-height:1.8}
+#feedback.good{border:1px solid #39c99a}
+#feedback.bad{border:1px solid #fb7185}
+@keyframes shake{25%{transform:translateX(-3px)}
+75%{transform:translateX(3px)}}
+@media(max-width:480px){main{padding:14px}
+.categories{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  
+<div><h1>🩺 MED QUEST</h1>
+  <small>MEDICAL QUIZZES & VOCABULARY</small></div>
+</header>
+
+<section class="stats">
+  <div class="card"><small>TOTAL XP</small>
+    <h2 id="xp">0 XP</h2><div class="bar">
+    <div id="xpbar" style="height:100%;background:var(--teal);
+    width:0"></div></div>
+    <small id="next">100 XP to next level</small>
+  </div>
+  <div class="card"><small>BADGES</small>
+    <h2 id="badges">🏅 0</h2>
+    <small id="badgeText">เริ่มภารกิจแรกของคุณ</small>
+  </div>
+</section>
+
+<section id="home">
+  <h2>เลือกภารกิจ</h2>
+  <div class="categories" id="categories"></div>
+</section>
+
+<section id="quiz" class="hidden">
+  <button id="back" class="category">← กลับหน้าหลัก</button>
+  <p class="muted" id="categoryName"></p>
+  <div class="bar"><div id="progress"></div></div>
+  <small id="count"></small>
+  <div class="panel">
+    <h3 id="question"></h3>
+    <p id="prompt"></p>
+    <div class="options" id="options"></div>
+    <div id="feedback" class="hidden"></div>
+    <button id="submit" class="primary">ส่งคำตอบ</button>
+    <button id="nextQ" class="primary hidden"
+      style="margin-top:10px">ข้อถัดไป →</button>
+  </div>
+</section>
+</main>
+<script>
+const categories = [
+ {name:"ระบบหายใจ",icon:"🫁",terms:[
+  ["Dyspnea","ผู้ป่วยหายใจไม่อิ่มและรู้สึกหายใจลำบาก",
+   "อาการหายใจลำบาก","dys- ยากหรือผิดปกติ; pnea- การหายใจ",
+ "Dyspnea = หายใจเหนื่อยหอบ รู้สึกเหมือนอากาศไม่พอ"],
+  ["Apnea","ผู้ป่วยหยุดหายใจ",
+   "ภาวะหยุดหายใจ","a- ไม่มี; pnea-  การหายใจ",
+   "a- สื่อถึงการไม่มี"],
+  ["Tachypnea","ผู้ป่วยหายใจเร็วกว่าปกติ",
+   "ภาวะหายใจเร็ว","tachy- เร็ว; pnea- การหายใจ",
+   "tachy- เชื่อมโยงกับความเร็ว"],
+  ["Bradypnea","ผู้ป่วยหายใจช้ากว่าปกติ",
+   "ภาวะหายใจช้า","brady- ช้า; pnea- การหายใจ",
+   "brady- ตรงข้ามกับ tachy-"],
+  ["Hypoxia","ผู้ป่วยมีภาวะออกซิเจนในเนื้อเยื่อต่ำ",
+   "ภาวะออกซิเจนในเนื้อเยื่อไม่เพียงพอ",
+   "hypo- ต่ำ; ox- ออกซิเจน",
+   "hypo- สื่อถึงระดับต่ำ"],
+  ["Cyanosis","ผู้ป่วยมีริมฝีปากหรือผิวเขียวคล้ำ",
+   "ภาวะเขียวคล้ำ","cyan- สีฟ้าอมเขียว",
+    "เห็นปากเขียวคล้ำ → นึกถึง Cyanosis"],
+  ["Hemoptysis","ผู้ป่วยไอและมีเลือดปนออกมา",
+   "การไอเป็นเลือด","hemo- เลือด; ptysis- การถ่มออก",
+   "hemo- เกี่ยวกับเลือด"],
+  
+["Rhonchi","ได้ยินเสียงครืดคราดขณะฟังเสียงปอด",
+ "เสียงหายใจผิดปกติลักษณะทุ้ม คล้ายเสียงกรน มักสัมพันธ์กับสารคัดหลั่งในทางเดินหายใจขนาดใหญ่",
+ " rhónchos-หมายถึงเสียงกรน",
+ "Rhonchi → เสียงครืดคราดทุ้ม ๆ → นึกถึงสารคัดหลั่งในทางเดินหายใจ"],
+
+ 
+  ["Stridor","ได้ยินเสียงดังผิดปกติขณะหายใจเข้า",
+   "เสียงหายใจดังผิดปกติ มักเป็นเสียงแหลมขณะหายใจเข้า เกี่ยวข้องกับการตีบหรืออุดกั้นของทางเดินหายใจส่วนบน",
+   " strīdere-  หมายถึง “การส่งเสียงเเหลม,เสียงเอี๊ยดอ๊าด”",
+   "เสียงฮื้ดตอนหายใจเข้า → ตีบที่คอ"],
+
+  ["Orthopnea","ผู้ป่วยหายใจลำบากเมื่อนอนราบ",
+   "อาการหายใจลำบากเมื่อนอนราบ",
+   "ortho- ตรงหรือแนวตั้ง; pnea- การหายใจ",
+   "สังเกตอาการที่สัมพันธ์กับท่านอน"]
+ ]},
+ {name:"ระบบไหลเวียนเลือด",icon:"❤️",terms:[
+  ["Tachycardia","ผู้ป่วยมีอัตราการเต้นหัวใจเร็ว",
+   "ภาวะหัวใจเต้นเร็ว","tachy- เร็ว; cardi- หัวใจ",
+   "tachy- หมายถึงเร็ว"],
+  ["Bradycardia","ผู้ป่วยมีอัตราการเต้นหัวใจช้า",
+   "ภาวะหัวใจเต้นช้า","brady- ช้า; cardi- หัวใจ",
+   "brady- หมายถึงช้า"],
+  ["Palpitations","ผู้ป่วยรู้สึกใจสั่นหรือหัวใจเต้นแรง",
+   "อาการใจสั่น หรือความรู้สึกที่ตัวเราเองรับรู้ได้ว่าหัวใจกำลังเต้นเร็ว แรง ผิดปกติ หรือเต้นไม่สม่ำเสมอ"," palpitare-  การเต้นรัว หรือ การสั่นระริก",
+   "นึกถึงอาการหัวใจเต้นแรง รัว หรือไม่เป็นจังหวะจนตัวเองรับรู้ได้"],
+  ["Hypotension","ตรวจพบความดันโลหิตต่ำ",
+   "ภาวะความดันโลหิตต่ำ","hypo- ต่ำ; tension- ความดัน",
+   "hypo- ต่ำ ตรงข้ามกับ hyper-สูง"],
+  ["Hypertension","ตรวจพบความดันโลหิตสูง",
+   "ภาวะความดันโลหิตสูง","hyper- สูงหรือมาก; tension- ความดัน",
+   "hyper- สูง ตรงข้ามกับ hypo- ต่ำ"],
+  ["Hemorrhage","ผู้ป่วยมีเลือดออกมาก",
+   "ภาวะเลือดออก","hemo- เลือด; -rrhage- การไหลออก",
+   "hemo- เกี่ยวกับเลือด"],
+ ["Thrombosis","ภาวะที่มีลิ่มเลือดก่อตัวภายในหลอดเลือด",
+ "การเกิดลิ่มเลือดอุดตันภายในหลอดเลือด ซึ่งอาจขัดขวางการไหลเวียนของเลือด",
+ " thrómbos- ก้อนเลือดหรือลิ่มเลือด และ ōsis- ภาวะหรือกระบวนการ",
+ "ลิ่มเลือดขวางท่อ ทำให้เลือดไหลผ่านยากขึ้น"],
+  ["Syncope","ผู้ป่วยหมดสติชั่วคราวแล้วฟื้น",
+   "การเป็นลมหมดสติชั่วคราว",
+   "syn- ร่วมกัน และ koptein- ตัดขาด",
+   "นึกถึงการหมดสติช่วงสั้น"],
+  ["Edema","พบอาการบวมจากของเหลวคั่งในเนื้อเยื่อ",
+    "เกิดจากมีของเหลวสะสมในเนื้อเยื่อมากกว่าปกติ ทำให้บริเวณนั้นบวม",
+   "oídēma- การบวม ",
+   "น้ำคั่งจนบวม กดบุ๋มได้"],
+  ["Ischemia","เลือดไปเลี้ยงเนื้อเยื่อไม่เพียงพอ",
+  "ภาวะขาดเลือด",
+ " ischein- ยับยั้ง และ haima- เลือด",
+   "เลือดไปไม่ถึง เนื้อเยื่อจึงขาดเลือด"]
+ ]},
+ {name:"กล้ามเนื้อและกระดูก",icon:"🦴",terms:[
+  ["Fracture","ผู้ป่วยบาดเจ็บและสงสัยกระดูกหัก",
+   "กระดูกหัก","fract- แตกหรือหัก",
+   "fracture เชื่อมโยงกับการแตกหัก"],
+  ["Dislocation","ข้อผิดรูปหลังได้รับแรงกระแทก",
+   "ข้อเคลื่อน","dis- แยกออก; location- ตำแหน่ง",
+   "นึกถึงการเคลื่อนของข้อต่อ"],
+  ["Sprain","ข้อเท้าบิดและเจ็บบริเวณเอ็น",
+   "การบาดเจ็บของเอ็นข้อต่อ","premere- บีบ/กด ",
+   "นึกถึงอาการเเพลงเป็นต้น"],
+  ["Strain","ปวดกล้ามเนื้อหลังยกของหนัก",
+   "การบาดเจ็บของกล้ามเนื้อหรือเอ็นกล้ามเนื้อ",
+   " stringere- ดึงให้ตึง",
+   "นึกถึงกล้ามเนื้อฉีกเป็นต้น"],
+  ["Crepitus","คลำหรือฟังพบเสียงกรอบแกรบขณะเคลื่อนไหว",
+   "เสียงหรือความรู้สึกกรอบแกรบ หรือเสียงเสียดสีที่เกิดขึ้นภายในข้อต่อขณะเคลื่อนไหว",
+   "crepāre- ส่งเสียงดังแกรกกราก, แตก, ร้าว  ",
+   "นึกถึงเสียงกรอบแกรบ"],
+  ["Deformity","แขนหรือขาผิดรูปหลังอุบัติเหตุ",
+   "โครงสร้างที่ผิดปกติไปจากเดิมหรือไม่เหมือนกับรูปร่างตามธรรมชาติ ","de- จาก forma- รูปทรง ity- สภาพ ",
+   "สังเกตรูปร่างที่เปลี่ยนไป"],
+  ["Contusion","รอยหลังถูกกระแทก",
+   "การฟกช้ำ","con- อย่างรุนแรง tundere- ทุบ, ตี, กระแทก หรือ บด ",
+   "นึกถึงรอยช้ำ"],
+  ["Hematoma","พบก้อนเลือดคั่งใต้ผิวหนัง",
+   "ภาวะเลือดคั่ง หรือ ภาวะที่เลือดรั่วไหลออกจากหลอดเลือด ที่ได้รับความเสียหาย แล้วมาสะสมหรือคั่งอยู่บริเวณเนื้อเยื่อหรือช่องว่างภายในร่างกาย กลายเป็นก้อนนูนหรือรอยช้ำ","Haimato- เลือด oma- ก้อน",
+   "เลือดมารวมตัวเป็นก้อน จนบวมเขียวช้ำ"],
+  ["Paralysis","ผู้ป่วยสูญเสียความสามารถในการขยับส่วนหนึ่งของร่างกาย",
+   "ภาวะอัมพาต","para- ข้างๆ, ผิดปกติ lysis-  การหลุดออก, การสลาย ",
+   "อยากขยับเเต่ขยับไม่ได้"],
+  ["Paresthesia","ผู้ป่วยรู้สึกชา ซ่า หรือเหมือนเข็มทิ่ม",
+   "ความรู้สึกผิดปกติ เช่น ชาหรือซ่า",
+   "para- ผิดปกติ esthesia- ความรู้สึก",
+   "นึกถึงความรู้สึกที่เปลี่ยนไป"]
+ ]},
+ {name:"สถานการณ์ฉุกเฉิน",icon:"🚑",terms:[
+["Pneumothorax",
+ "ผู้ป่วยเจ็บหน้าอกเฉียบพลันและหายใจลำบากหลังได้รับแรงกระแทกที่ทรวงอก",
+ "ภาวะลมในช่องเยื่อหุ้มปอด เกิดจากอากาศเข้าไปสะสมในช่องเยื่อหุ้มปอด ทำให้ปอดถูกกดและอาจแฟบลง ส่งผลให้ปอดขยายตัวรับอากาศได้ลดลง",
+ "pneumo- ลม; thorax- ทรวงอก",
+ "ลมเข้าช่องรอบปอด ปอดจึงขยายตัวได้ยาก"],
+["Intoxication",
+ "ผู้ป่วยสับสน พูดไม่ชัด และเดินเซหลังได้รับสารพิษหรือดื่มแอลกอฮอล์",
+ "ภาวะที่ร่างกายได้รับสารซึ่งก่อให้เกิดพิษ เช่น สารเคมี ยา หรือแอลกอฮอล์ จนส่งผลให้การทำงานของร่างกายผิดปกติ",
+ "toxikon- ลูกธนูอาบยาพิษ",
+ "รับสารจนเมา สติเปลี่ยน"],
+ ["Pulmonary Edema",
+   "ผู้ป่วยหอบเหนื่อยรุนแรง นอนราบไม่ได้ และอาจมีเสมหะเป็นฟอง",
+   "ภาวะมีของเหลวสะสมในเนื้อปอดหรือถุงลม",
+   "pulmonary- เกี่ยวกับปอด; edema- ภาวะบวมหรือมีของเหลวสะสม",
+   " น้ำสะสมในปอด ทำให้หายใจลำบาก"], 
+["Seizure","ผู้ป่วยมีอาการเกร็งกระตุกและไม่ตอบสนองชั่วคราว",
+   "อาการชัก หรือภาวะที่สมองมีการปล่อยกระแสไฟฟ้าออกมาผิดปกติและมากเกินไปอย่างกะทันหัน",
+   "Seize- จับหรือยึดอย่างฉับพลัน ure- การกระทำ ",
+   "ชักเกร็งหรือกระตุก "],
+["Cardiac Arrest","ผู้ป่วยหมดสติ ไม่ตอบสนอง และไม่หายใจตามปกติ",
+   "ภาวะหัวใจหยุดเต้น",
+   "cardiac- เกี่ยวกับหัวใจ; arrest- หยุด",
+   "หัวใจหยุดเต้น ต้องรีบเรียกทีมฉุกเฉินและเริ่ม CPR ตามแนวทาง"],
+  ["Penetrating Chest Injury","ผู้ป่วยรายหนึ่งมีบาดแผลบริเวณหน้าอกหลังเกิดเหตุรุนแรง ต่อมามีอาการหายใจลำบากและเจ็บหน้าอกมาก การบาดเจ็บนี้เรียกว่าอะไร?",
+ "ภาวะที่อวัยวะหรือผนังทรวงอกได้รับความเสียหายจากวัตถุมีคมหรือวัตถุความเร็วสูงที่เจาะทะลุผิวหนังและผนังทรวงอกเข้าสู่ช่องอก",
+ "Penetrating- แทงทะลุหรือผ่านเข้าไป; Chest- บริเวณอกด้านหน้า; Injury- การบาดเจ็บ",
+ "วัตถุทะลุผ่านผนังทรวงอก → อาจทำให้อวัยวะภายในบาดเจ็บ"],
+["Anaphylaxis","ไม่นานหลังได้รับยา ผู้ป่วยเริ่มหน้าบวม หายใจมีเสียงหวีด และความดันโลหิตลดลงอย่างรวดเร็ว ภาวะฉุกเฉินนี้เรียกว่าอะไร",
+   "ปฏิกิริยาภูมิแพ้ที่เกิดขึ้นอย่างรุนแรงและรวดเร็วทันทีหลังจากได้รับสารก่อภูมิแพ้",
+   "ana- ย้อนกลับ phylaxis- การป้องกัน ",
+   "แพ้รุนแรง ลามทั่วร่างกาย เสี่ยงช็อก"],
+["Continuous Bleeding","ผู้ป่วยมีบาดแผลที่เลือดไหลไม่หยุด",
+ "ภาวะเลือดออกอย่างต่อเนื่องหรือไหลไม่หยุด",
+"continuous- ต่อเนื่อง; bleeding- การมีเลือดออก",
+" มีเลือดออกติดต่อกันเป็นระยะเวลานานกว่าปกติ ต้องรีบห้ามเลือด"],
+["Hydrocephalus","ทารกมีศีรษะโตขึ้นผิดปกติจากการระบายของน้ำไขสันหลังที่ผิดปกติ ภาวะนี้เรียกว่าอะไร",
+ "ภาวะน้ำไขสันหลังคั่งในโพรงสมอง",
+ "hydro-  น้ำ; cephalus- ศีรษะ",
+ "น้ำคั่งในโพรงสมอง จนโพรงสมองขยาย"],
+["Hydrothorax","ผู้ป่วยมีภาวะหายใจลำบากจากของเหลวที่สะสมอยู่รอบปอด ภาวะนี้เรียกว่าอะไร",
+ "ภาวะมีของเหลวสะสมในช่องเยื่อหุ้มปอด",
+ "hydro-  น้ำหรือของเหลว; thorax- ทรวงอก",
+ "นึกถึงของเหลวคั่งอยู่รอบปอด"]
+ ]}
+];
+
+let xp=0,correct=0,answered=0,earnedBadges=[];
+let active=null,index=0,selected=-1,locked=false;
+
+const $=id=>document.getElementById(id);
+const shuffle=a=>[...a].sort(()=>Math.random()-.5);
+
+function renderHome(){
+ $("home").classList.remove("hidden");
+ $("quiz").classList.add("hidden");
+ $("categories").innerHTML=categories.map((c,i)=>
+ `<button class="category" data-cat="${i}">
+ <h3>${c.icon} ${c.name}</h3>
+ <small>${i===3?"เคสจำลอง":c.terms.length+" คำศัพท์"}</small>
+ </button>`).join("");
+ document.querySelectorAll("[data-cat]").forEach(b=>
+ b.onclick=()=>start(+b.dataset.cat));
+ updateStats();
+}
+
+function start(i){
+ active=categories[i];index=0;correct=0;answered=0;
+ selected=-1;locked=false;
+ // คืนการทำงานของปุ่มข้อถัดไปทุกครั้งที่เริ่มภารกิจใหม่
+ $("nextQ").onclick=next;
+ // รวมศัพท์ทุกหมวดและตัดคำซ้ำ
+ const allTerms=[
+  ...new Map(
+   categories.flatMap(c=>c.terms).map(t=>[t[0],t])
+  ).values()
+ ];
+
+ active.questions=shuffle(active.terms).map(t=>{
+  const wrong=shuffle(
+   allTerms.filter(x=>x[0]!==t[0])
+  ).slice(0,3).map(x=>x[0]);
+
+  return {t,opts:shuffle([t[0],...wrong])};
+ });
+
+ $("home").classList.add("hidden");
+ $("quiz").classList.remove("hidden");
+ $("categoryName").textContent=active.name;
+ showQuestion();
+}
+
+function showQuestion(){
+ selected=-1;locked=false;
+ const item=active.questions[index],t=item.t;
+ $("count").textContent=`ข้อ ${index+1} / ${active.questions.length}`;
+ $("progress").style.width=(index/active.questions.length*100)+"%";
+ $("question").textContent=t[1];
+ $("prompt").textContent="ศัพท์ใดตรงกับอาการนี้มากที่สุด?";
+ $("feedback").className="hidden";
+ $("feedback").textContent="";
+ $("options").innerHTML=item.opts.map((o,i)=>
+ `<button class="option" data-opt="${i}">${String.fromCharCode(65+i)}. ${o}</button>`
+ ).join("");
+ document.querySelectorAll("[data-opt]").forEach(b=>b.onclick=()=>{
+  if(locked)return;
+  selected=+b.dataset.opt;
+  document.querySelectorAll(".option").forEach(x=>
+   x.classList.toggle("selected",x===b));
+ });
+ $("submit").classList.remove("hidden");
+ $("nextQ").classList.add("hidden");
+}
+function updateStats(){
+ const level=Math.floor(xp/100)+1,progress=xp%100;
+ $("xp").textContent=xp+" XP";
+ $("xpbar").style.width=progress+"%";
+ $("next").textContent=(100-progress)+" XP to next level";
+ $("badges").textContent="🏅 "+earnedBadges.length;
+ $("badgeText").textContent=earnedBadges.join(" · ")||"เริ่มภารกิจแรกของคุณ";
+}
+function submit(){
+ if(selected<0||locked)return;
+ locked=true;answered++;
+ const item=active.questions[index],t=item.t;
+ const answer=item.opts[selected],isCorrect=answer===t[0];
+ const buttons=[...document.querySelectorAll(".option")];
+ buttons.forEach((b,i)=>{
+  b.disabled=true;
+  if(item.opts[i]===t[0])b.classList.add("correct");
+  else if(i===selected)b.classList.add("wrong");
+ });
+ if(isCorrect){correct++;xp+=10;}
+ $("feedback").className=isCorrect?"good":"bad";
+ $("feedback").classList.remove("hidden");
+ $("feedback").innerHTML=`<strong>${isCorrect?"✓ ถูกต้อง! +10 XP":"✕ ยังไม่ถูก คำตอบคือ "+t[0]}</strong><br>
+ <b>ความหมาย:</b> ${t[2]}<br>
+ <b>รากศัพท์:</b> ${t[3]}<br>
+ <b>เทคนิคจำ:</b> ${t[4]}`;
+ // เหรียญสะสมตาม XP รวม จึงปลดล็อกเพิ่มได้ข้ามหลายภารกิจ
+ if(xp>=10&&!earnedBadges.includes("First Response"))
+  earnedBadges.push("First Response");
+ if(xp>=50&&!earnedBadges.includes("Quick Thinker"))
+  earnedBadges.push("Quick Thinker");
+ if(xp>=100&&!earnedBadges.includes("Field Medic"))
+  earnedBadges.push("Field Medic");
+ if(xp>=200&&!earnedBadges.includes("EMT Expert"))
+  earnedBadges.push("EMT Expert");
+ updateStats();
+ $("submit").classList.add("hidden");
+ $("nextQ").classList.remove("hidden");
+ $("nextQ").textContent=index===active.questions.length-1?
+ "ดูผลภารกิจ":"ข้อถัดไป →";
+}
+
+
+function next(){
+ if(index<active.questions.length-1){
+  index++;
+  showQuestion();
+  return;
+ }
+
+ $("progress").style.width="100%";
+ updateStats();
+
+ $("question").textContent="ภารกิจเสร็จสิ้น! 🎉";
+ $("prompt").textContent=`ตอบถูก ${correct} จาก ${answered} ข้อ`;
+ $("options").innerHTML="";
+
+ $("feedback").className="good";
+ $("feedback").classList.remove("hidden");
+ $("feedback").innerHTML=
+  `<strong>ภารกิจเสร็จสิ้น!</strong><br>`+
+  `TOTAL XP: ${xp} XP<br>`+
+  `เหรียญรางวัล: ${earnedBadges.join(", ")||"ยังไม่มี"}`;
+
+ $("submit").classList.add("hidden");
+ $("nextQ").classList.remove("hidden");
+  $("nextQ").textContent="กลับหน้าหลัก";
+ $("nextQ").onclick=()=>{
+  $("home").classList.remove("hidden");
+  $("quiz").classList.add("hidden");
+  renderHome();
+ };
+}
+$("submit").onclick=submit;
+$("nextQ").onclick=next;
+$("back").onclick=renderHome;
+renderHome();
+</script>
+</body>
+</html>
